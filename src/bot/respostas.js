@@ -91,9 +91,9 @@ function respostaListar(transacoes) {
   return texto;
 }
 
-function respostaMetaSalva(categoria, limite) {
-  return `🎯 *Meta definida!*\n${emojiCategoria(categoria)} ${categoria}: limite de *${formatarMoeda(limite)}*\n\n_Você será avisado quando atingir 80% do limite._`;
-}
+//function respostaMetaSalva(categoria, limite) {
+ // return `🎯 *Meta definida!*\n${emojiCategoria(categoria)} ${categoria}: limite de *${formatarMoeda(limite)}*\n\n_Você será avisado quando atingir 80% do limite._`;
+//}
 
 function respostaApagado(id) {
   return `🗑️ Transação #${id} apagada com sucesso!`;
