@@ -47,12 +47,9 @@ async function conectar() {
     browser: ['FinBot', 'Chrome', '1.0.0'],
   });
 
-<<<<<<< HEAD
 
     sock.ev.on('connection.update', async (update) => {
-=======
-  sock.ev.on('connection.update', async (update) => {
->>>>>>> 32a773da9b38d9944afccbdb071f84599bf9149a
+
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
@@ -219,9 +216,6 @@ async function verificarMeta(jid, transacao) {
   }
 }
 
-<<<<<<< HEAD
 export { conectar };
 
-=======
-export { conectar };
->>>>>>> 32a773da9b38d9944afccbdb071f84599bf9149a
+

@@ -41,10 +41,7 @@ function detectarCategoria(descricao) {
 function parsearValor(valorStr) {
   return parseFloat(valorStr.replace(',', '.'));
 }
-<<<<<<< HEAD
-=======
 
->>>>>>> 32a773da9b38d9944afccbdb071f84599bf9149a
 function parsearMensagem(texto) {
   const textoLimpo = texto.trim().toLowerCase();
 
