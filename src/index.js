@@ -1,5 +1,3 @@
-// index.js - Ponto de entrada da aplicação, responsável por iniciar o servidor Express e o bot WhatsApp
-
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';

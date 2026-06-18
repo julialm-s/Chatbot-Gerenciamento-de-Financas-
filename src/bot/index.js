@@ -1,5 +1,3 @@
-// index.js - Responsável por conectar ao WhatsApp, receber mensagens, processá-las e enviar respostas
-
 import makeWASocket, { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import qrcode from 'qrcode-terminal';
@@ -46,7 +44,7 @@ async function conectar() {
     auth: state,
     logger: pino({ level: 'silent' }),
     printQRInTerminal: false,
-    browser: ['FinBot', 'Chrome', '1.0.0'],
+    browser: ['finbot', 'Chrome', '1.0.0'],
   });
 
   sock.ev.on('connection.update', async (update) => {
@@ -132,11 +130,7 @@ async function conectar() {
           const transacao = await Transacao.create(parsed.dados);
           await enviar(jid, respostaTransacaoSalva(transacao));
           await verificarMeta(jid, transacao);
-        }
-
-        // Caso seja um comando
-        else if (parsed.tipo === 'comando') {
-
+        } else if (parsed.tipo === 'comando') {
           await processarComando(jid, parsed);
         } else {
           await enviar(jid, respostaErro());
@@ -151,10 +145,73 @@ async function conectar() {
 }
 
 async function enviar(jid, texto) {
-
-  await sock.sendMessage(jid, {
-    text: texto
-  });
-
-  console.log('✅ Mensagem enviada!');
+  await sock.sendMessage(jid, { text: texto });
+  console.log(`✅ Mensagem enviada!`);
 }
+
+async function processarComando(jid, parsed) {
+  const agora = new Date();
+  const mes = agora.getMonth() + 1;
+  const ano = agora.getFullYear();
+
+  switch (parsed.comando) {
+    case 'ajuda':
+      await enviar(jid, respostaAjuda());
+      break;
+
+    case 'resumo': {
+      const gastos = await Transacao.findAll({ where: { tipo: 'gasto', mes, ano } });
+      const receitas = await Transacao.findAll({ where: { tipo: 'receita', mes, ano } });
+      const totalGastos = gastos.reduce((s, t) => s + t.valor, 0);
+      const totalReceitas = receitas.reduce((s, t) => s + t.valor, 0);
+      const porCategoriaMap = {};
+      gastos.forEach(t => { porCategoriaMap[t.categoria] = (porCategoriaMap[t.categoria] || 0) + t.valor; });
+      const porCategoria = Object.entries(porCategoriaMap)
+        .map(([categoria, total]) => ({ categoria, total }))
+        .sort((a, b) => b.total - a.total);
+      await enviar(jid, respostaResumo({ totalGastos, totalReceitas, saldo: totalReceitas - totalGastos, porCategoria, mes, ano }));
+      break;
+    }
+
+    case 'listar': {
+      const transacoes = await Transacao.findAll({ order: [['createdAt', 'DESC']], limit: parsed.limite || 10 });
+      await enviar(jid, respostaListar(transacoes));
+      break;
+    }
+
+    case 'meta':
+      await Meta.upsert({ categoria: parsed.categoria, limite: parsed.limite, mes, ano });
+      await enviar(jid, respostaMetaSalva(parsed.categoria, parsed.limite));
+      break;
+
+    case 'apagar': {
+      const t = await Transacao.findByPk(parsed.id);
+      if (t) {
+        await t.destroy();
+        await enviar(jid, respostaApagado(parsed.id));
+      } else {
+        await enviar(jid, `❌ Transação #${parsed.id} não encontrada.`);
+      }
+      break;
+    }
+  }
+}
+
+async function verificarMeta(jid, transacao) {
+  if (transacao.tipo !== 'gasto') return;
+  const agora = new Date();
+  const mes = agora.getMonth() + 1;
+  const ano = agora.getFullYear();
+  const meta = await Meta.findOne({ where: { categoria: transacao.categoria, mes, ano } });
+  if (!meta) return;
+  const gastosCat = await Transacao.findAll({ where: { tipo: 'gasto', categoria: transacao.categoria, mes, ano } });
+  const totalGasto = gastosCat.reduce((s, t) => s + t.valor, 0);
+  const percentual = (totalGasto / meta.limite) * 100;
+  if (percentual >= 100) {
+    await enviar(jid, `🚨 *Atenção!* Você ultrapassou a meta de *${transacao.categoria}*!\nGasto: R$ ${totalGasto.toFixed(2)} / Limite: R$ ${meta.limite.toFixed(2)}`);
+  } else if (percentual >= 80) {
+    await enviar(jid, `⚠️ Você já usou *${percentual.toFixed(0)}%* da meta de *${transacao.categoria}* (R$ ${totalGasto.toFixed(2)} de R$ ${meta.limite.toFixed(2)})`);
+  }
+}
+
+export { conectar };
