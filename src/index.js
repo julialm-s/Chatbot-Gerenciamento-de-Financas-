@@ -11,7 +11,7 @@ import cors from 'cors';
 import { inicializarBanco } from './models/index.js';
 
 //  Importa a função responsável por conectar o bot do WhatsApp.
-import { conectar } from './bot/index.js';
+import {conectar} from './bot/index.js';
 
 // Importa as rotas da API definidas no arquivo routes.js.
 import apiRoutes from './api/routes.js';

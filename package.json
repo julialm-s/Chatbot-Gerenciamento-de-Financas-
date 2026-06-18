@@ -2,6 +2,7 @@
   "name": "finbot-whatsapp",
   "version": "1.0.0",
   "description": "Bot financeiro para WhatsApp com API REST",
+  "type": "module",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",

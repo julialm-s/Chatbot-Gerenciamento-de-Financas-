@@ -29,7 +29,6 @@ import {
   respostaTransacaoSalva,
   respostaResumo,
   respostaListar,
-  respostaMetaSalva,
   respostaApagado,
   respostaErro,
 } from './respostas.js';
@@ -66,9 +65,8 @@ async function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
 
-
 // Função principal responsável por conectar o bot ao WhatsApp
-async function conectar() {
+export async function conectar() {
 
   // Carrega ou cria os arquivos de autenticação!!!
   const { state, saveCreds } = await useMultiFileAuthState('./auth_finbot');

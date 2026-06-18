@@ -1,5 +1,5 @@
 import express from 'express';
-import { Transacao, Meta } from '../models/index.js';
+import { Transacao} from '../models/index.js';
 import { Op } from 'sequelize';
 
 const router = express.Router();

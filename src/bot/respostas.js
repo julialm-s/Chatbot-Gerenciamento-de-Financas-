@@ -108,7 +108,6 @@ export {
   respostaTransacaoSalva,
   respostaResumo,
   respostaListar,
-  respostaMetaSalva,
   respostaApagado,
   respostaErro,
 };
