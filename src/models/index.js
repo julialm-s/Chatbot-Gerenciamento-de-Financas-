@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // Importa os módulos principais do Sequelize (ORM para Node.js) e os tipos de dados suportados
 import { Sequelize, DataTypes } from 'sequelize';
 // Carrega as variáveis de ambiente definidas no arquivo .env
@@ -52,6 +53,57 @@ const Transacao = sequelize.define('Transacao', {
 });
 
 // Define o modelo 'Meta', que armazena limites orçamentários por categoria e período
+=======
+import { Sequelize, DataTypes } from 'sequelize';
+import 'dotenv/config';
+
+const sequelize = new Sequelize({
+  dialect: 'sqlite',
+  storage: process.env.DB_PATH || './finbot.db',
+  logging: false,
+});
+
+const Transacao = sequelize.define('Transacao', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  tipo: {
+    type: DataTypes.ENUM('gasto', 'receita'),
+    allowNull: false,
+  },
+  valor: {
+    type: DataTypes.FLOAT,
+    allowNull: false,
+  },
+  descricao: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  categoria: {
+    type: DataTypes.STRING,
+    defaultValue: 'outros',
+  },
+  data: {
+    type: DataTypes.DATEONLY,
+    defaultValue: DataTypes.NOW,
+  },
+  mes: {
+    type: DataTypes.INTEGER,
+  },
+  ano: {
+    type: DataTypes.INTEGER,
+  },
+  mensagemOriginal: {
+    type: DataTypes.STRING,
+  },
+}, {
+  tableName: 'transacoes',
+  timestamps: true,
+});
+
+>>>>>>> 32a773da9b38d9944afccbdb071f84599bf9149a
 const Meta = sequelize.define('Meta', {
   id: {
     type: DataTypes.INTEGER,
@@ -60,6 +112,7 @@ const Meta = sequelize.define('Meta', {
   },
   categoria: {
     type: DataTypes.STRING,
+<<<<<<< HEAD
     allowNull: false,                 // Categoria é obrigatória para vincular o limite
   },
   limite: {
@@ -81,9 +134,32 @@ const Meta = sequelize.define('Meta', {
 const inicializarBanco = async () => {
   // { alter: true } permite que o Sequelize ajuste a estrutura das tabelas (adicionar/remover colunas) 
   // sem apagar os dados existentes
+=======
+    allowNull: false,
+  },
+  limite: {
+    type: DataTypes.FLOAT,
+    allowNull: false,
+  },
+  mes: {
+    type: DataTypes.INTEGER,
+  },
+  ano: {
+    type: DataTypes.INTEGER,
+  },
+}, {
+  tableName: 'metas',
+  timestamps: true,
+});
+
+const inicializarBanco = async () => {
+>>>>>>> 32a773da9b38d9944afccbdb071f84599bf9149a
   await sequelize.sync({ alter: true });
   console.log('✅ Banco de dados sincronizado');
 };
 
+<<<<<<< HEAD
 // Exporta os módulos para que possam ser importados e reutilizados em outros arquivos do projeto
+=======
+>>>>>>> 32a773da9b38d9944afccbdb071f84599bf9149a
 export { sequelize, Transacao, Meta, inicializarBanco };
