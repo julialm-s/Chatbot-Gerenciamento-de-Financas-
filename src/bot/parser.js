@@ -28,6 +28,19 @@ const COMANDOS = {
   apagar: /^apagar\s+(\d+)$/i,
 };
 
+function detectarCategoria(descricao) {
+  const desc = descricao.toLowerCase();
+  for (const [categoria, palavras] of Object.entries(CATEGORIAS)) {
+    if (palavras.some(p => desc.includes(p))) {
+      return categoria;
+    }
+  }
+  return 'outros';
+}
+
+function parsearValor(valorStr) {
+  return parseFloat(valorStr.replace(',', '.'));
+}
 function parsearMensagem(texto) {
   // 1. Pré-processamento da mensagem:
   // Remove espaços em branco do início e fim e converte para minúsculas para padronização
