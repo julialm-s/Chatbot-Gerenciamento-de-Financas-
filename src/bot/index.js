@@ -1,10 +1,29 @@
-import makeWASocket, { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
+// Importa as funções principais do Baileys para conexão com o WhatsApp
+import makeWASocket, {
+  useMultiFileAuthState,
+  DisconnectReason,
+  fetchLatestBaileysVersion
+} from '@whiskeysockets/baileys';
+
+// Identificar o motivo da desconexão
 import { Boom } from '@hapi/boom';
+
+// Biblioteca para gerar o QR Code no terminal
 import qrcode from 'qrcode-terminal';
+
+// Logger utilizado pelo Baileys
 import pino from 'pino';
-import fs from 'fs'; 
+
+// Manipulação de arquivos
+import fs from 'fs';
+
+// Função responsável por interpretar a mensagem do usuário
 import { parsearMensagem } from './parser.js';
-import { Transacao, Meta } from '../models/index.js';
+
+// Modelos do banco de dados
+import { Transacao } from '../models/index.js';
+
+// Funções que geram as mensagens de resposta do bot
 import {
   respostaAjuda,
   respostaTransacaoSalva,
@@ -15,30 +34,49 @@ import {
   respostaErro,
 } from './respostas.js';
 
+// Socket principal do WhatsApp
 let sock = null;
-let sessaoPronta = false;
-let botJid = ''; 
-let userLid = ''; 
 
+// Indica se a sessão está pronta para receber mensagens
+let sessaoPronta = false;
+
+// ID do próprio bot
+let botJid = '';
+
+// ID do usuário autorizado a conversar com o bot
+let userLid = '';
+
+// Arquivo onde será salvo o ID do usuário autorizado
 const CONFIG_FILE = './bot_config.json';
 
+
+// Se existir um arquivo de configuração, tenta recuperar o usuário configurado
 if (fs.existsSync(CONFIG_FILE)) {
-    try {
-        const config = JSON.parse(fs.readFileSync(CONFIG_FILE));
-        userLid = config.userLid || '';
-    } catch (e) {
-        console.error('Erro ao ler config:', e);
-    }
+  try {
+    const config = JSON.parse(fs.readFileSync(CONFIG_FILE));
+    userLid = config.userLid || '';
+  } catch (e) {
+    console.error('Erro ao ler config:', e);
+  }
 }
 
+
+// Função auxiliar para pausar a execução por alguns milissegundos
 async function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
 
+
+// Função principal responsável por conectar o bot ao WhatsApp
 async function conectar() {
+
+  // Carrega ou cria os arquivos de autenticação!!!
   const { state, saveCreds } = await useMultiFileAuthState('./auth_finbot');
+
+  // Obtém a versão mais recente suportada do WhatsApp Web
   const { version } = await fetchLatestBaileysVersion();
 
+  // Cria a conexão
   sock = makeWASocket({
     version,
     auth: state,
@@ -48,174 +86,220 @@ async function conectar() {
   });
 
 
-    sock.ev.on('connection.update', async (update) => {
+  // Evento responsável por monitorar mudanças na conexão
+  sock.ev.on('connection.update', async (update) => {
 
     const { connection, lastDisconnect, qr } = update;
 
+    // Caso seja necessário um novo login, gera o QR Code
     if (qr) {
       sessaoPronta = false;
-      console.log('\n📱 Escaneie o QR Code abaixo com seu WhatsApp:\n');
+
+      console.log('\n📱 Escaneie o QR Code abaixo:\n');
+
       qrcode.generate(qr, { small: true });
     }
 
+
+    // Caso a conexão seja encerrada
     if (connection === 'close') {
+
       sessaoPronta = false;
+
+      // Descobre o motivo da desconexão
       const motivo = new Boom(lastDisconnect?.error)?.output?.statusCode;
+
+      // Verifica se deve reconectar automaticamente
       const deveReconectar = motivo !== DisconnectReason.loggedOut;
+
       if (deveReconectar) {
+
         console.log('🔄 Reconectando...');
+
         conectar();
+
       } else {
-        console.log('❌ Desconectado. Apague a pasta auth_finbot e reinicie.');
+
+        console.log('❌ Desconectado. Apague auth_finbot e reinicie.');
+
       }
     }
 
+    // Quando a conexão é estabelecida
     if (connection === 'open') {
-      console.log('✅ Bot WhatsApp conectado!');
+
+      console.log('✅ Bot conectado!');
+
+      // Salva o ID do próprio bot
       botJid = sock.user.id.split(':')[0];
+
       console.log(`Bot ID Base: ${botJid}`);
-      if (userLid) console.log(`ID do Usuário Configurado: ${userLid}`);
-      else console.log('⚠️ Aguardando comando "configurar" no chat privado...');
-      
+
+      // Verifica se já existe um usuário configurado
+      if (userLid)
+        console.log(`ID configurado: ${userLid}`);
+      else
+        console.log('⚠️ Aguardando comando "configurar".');
+
+      // Espera alguns segundos antes de aceitar mensagens
       await sleep(5000);
+
       sessaoPronta = true;
+
       console.log('🟢 Bot pronto!');
     }
   });
 
+
+  // Salva as credenciais sempre que forem atualizadas
   sock.ev.on('creds.update', saveCreds);
 
+
+  // Evento disparado quando chegam novas mensagens
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
+
+    // Ignora mensagens que não sejam notificações
     if (type !== 'notify') return;
 
+    // Percorre todas as mensagens recebidas
     for (const msg of messages) {
+
       try {
+
         const jid = msg.key.remoteJid;
+
+        // Verifica se a mensagem foi enviada pelo próprio bot
         const fromMe = msg.key.fromMe;
-        
+
+        // Ignora mensagens de outras pessoas
         if (!fromMe) continue;
 
+        // Ignora grupos
         if (jid.endsWith('@g.us')) continue;
 
-        const texto = (msg.message?.conversation
-          || msg.message?.extendedTextMessage?.text
-          || msg.message?.ephemeralMessage?.message?.conversation
-          || msg.message?.ephemeralMessage?.message?.extendedTextMessage?.text
-          || '').trim();
 
+        // Extrai o texto da mensagem
+        const texto =
+          (
+            msg.message?.conversation ||
+            msg.message?.extendedTextMessage?.text ||
+            msg.message?.ephemeralMessage?.message?.conversation ||
+            msg.message?.ephemeralMessage?.message?.extendedTextMessage?.text ||
+            ''
+          ).trim();
+
+        // Ignora mensagens vazias
         if (!texto) continue;
 
+
+        
+        // Se ainda não existir um usuário configurado ou
+        // Se a mensagem for "configurar"
+        
         if (!userLid || texto.toLowerCase() === 'configurar') {
-            if (texto.toLowerCase() === 'configurar') {
-                userLid = jid;
-                fs.writeFileSync(CONFIG_FILE, JSON.stringify({ userLid }));
-                console.log(`✅ Bot configurado para o ID: ${userLid}`);
-                await enviar(jid, '✅ Bot configurado com sucesso! Agora responderei apenas neste chat.');
-                return; 
-            }
-          
-            if (!userLid) continue;
+
+          // Salva o chat atual como chat principal
+          if (texto.toLowerCase() === 'configurar') {
+
+            userLid = jid;
+
+            fs.writeFileSync(
+              CONFIG_FILE,
+              JSON.stringify({ userLid })
+            );
+
+            console.log(`✅ Bot configurado para ${userLid}`);
+
+            await enviar(
+              jid,
+              '✅ Bot configurado com sucesso!'
+            );
+
+            return;
+          }
+
+          if (!userLid) continue;
         }
 
+
+        // Ignora mensagens vindas de outros chats
         if (jid !== userLid) continue;
 
-        if (msg.messageStubType) continue; 
 
-        const padroesDeResposta = ['👋', '🔴', '🟢', '📅', '📋', '🎯', '🗑️', '❌', '⚠️', '🚨'];
+        // Ignora mensagens de sistema
+        if (msg.messageStubType) continue;
+
+
+        // Evita processar mensagens enviadas pelo próprio bot
+        const padroesDeResposta = [
+          '👋',
+          '🔴',
+          '🟢',
+          '📅',
+          '📋',
+          '🎯',
+          '🗑️',
+          '❌',
+          '⚠️',
+          '🚨'
+        ];
+
         if (padroesDeResposta.some(p => texto.startsWith(p))) {
-            continue;
+          continue;
         }
-        
+
+
+        // Interpreta a mensagem recebida
         const parsed = parsearMensagem(texto);
 
+
+        // Caso seja uma transação financeira
         if (parsed.tipo === 'transacao') {
+
+          // Salva no banco
           const transacao = await Transacao.create(parsed.dados);
+
+          // Envia confirmação
           await enviar(jid, respostaTransacaoSalva(transacao));
+
+          // Verifica se a meta foi atingida
           await verificarMeta(jid, transacao);
-        } else if (parsed.tipo === 'comando') {
+        }
+
+        // Caso seja um comando
+        else if (parsed.tipo === 'comando') {
+
           await processarComando(jid, parsed);
-        } else {
+
+        }
+
+        // Caso a mensagem seja inválida
+        else {
+
           await enviar(jid, respostaErro());
+
         }
 
       } catch (err) {
-        if (err.message?.includes('No sessions') || err.message?.includes('Bad MAC')) return;
+
+        // Ignora erros de sessão
+        if (
+          err.message?.includes('No sessions') ||
+          err.message?.includes('Bad MAC')
+        ) return;
+
         console.error('Erro ao processar mensagem:', err);
       }
     }
   });
 }
 
+// Função responsável por enviar mensagens
 async function enviar(jid, texto) {
-  await sock.sendMessage(jid, { text: texto });
-  console.log(`✅ Mensagem enviada!`);
+
+  await sock.sendMessage(jid, {
+    text: texto
+  });
+
+  console.log('✅ Mensagem enviada!');
 }
-
-async function processarComando(jid, parsed) {
-  const agora = new Date();
-  const mes = agora.getMonth() + 1;
-  const ano = agora.getFullYear();
-
-  switch (parsed.comando) {
-    case 'ajuda':
-      await enviar(jid, respostaAjuda());
-      break;
-
-    case 'resumo': {
-      const gastos = await Transacao.findAll({ where: { tipo: 'gasto', mes, ano } });
-      const receitas = await Transacao.findAll({ where: { tipo: 'receita', mes, ano } });
-      const totalGastos = gastos.reduce((s, t) => s + t.valor, 0);
-      const totalReceitas = receitas.reduce((s, t) => s + t.valor, 0);
-      const porCategoriaMap = {};
-      gastos.forEach(t => { porCategoriaMap[t.categoria] = (porCategoriaMap[t.categoria] || 0) + t.valor; });
-      const porCategoria = Object.entries(porCategoriaMap)
-        .map(([categoria, total]) => ({ categoria, total }))
-        .sort((a, b) => b.total - a.total);
-      await enviar(jid, respostaResumo({ totalGastos, totalReceitas, saldo: totalReceitas - totalGastos, porCategoria, mes, ano }));
-      break;
-    }
-
-    case 'listar': {
-      const transacoes = await Transacao.findAll({ order: [['createdAt', 'DESC']], limit: parsed.limite || 10 });
-      await enviar(jid, respostaListar(transacoes));
-      break;
-    }
-
-    case 'meta':
-      await Meta.upsert({ categoria: parsed.categoria, limite: parsed.limite, mes, ano });
-      await enviar(jid, respostaMetaSalva(parsed.categoria, parsed.limite));
-      break;
-
-    case 'apagar': {
-      const t = await Transacao.findByPk(parsed.id);
-      if (t) {
-        await t.destroy();
-        await enviar(jid, respostaApagado(parsed.id));
-      } else {
-        await enviar(jid, `❌ Transação #${parsed.id} não encontrada.`);
-      }
-      break;
-    }
-  }
-}
-
-async function verificarMeta(jid, transacao) {
-  if (transacao.tipo !== 'gasto') return;
-  const agora = new Date();
-  const mes = agora.getMonth() + 1;
-  const ano = agora.getFullYear();
-  const meta = await Meta.findOne({ where: { categoria: transacao.categoria, mes, ano } });
-  if (!meta) return;
-  const gastosCat = await Transacao.findAll({ where: { tipo: 'gasto', categoria: transacao.categoria, mes, ano } });
-  const totalGasto = gastosCat.reduce((s, t) => s + t.valor, 0);
-  const percentual = (totalGasto / meta.limite) * 100;
-  if (percentual >= 100) {
-    await enviar(jid, `🚨 *Atenção!* Você ultrapassou a meta de *${transacao.categoria}*!\nGasto: R$ ${totalGasto.toFixed(2)} / Limite: R$ ${meta.limite.toFixed(2)}`);
-  } else if (percentual >= 80) {
-    await enviar(jid, `⚠️ Você já usou *${percentual.toFixed(0)}%* da meta de *${transacao.categoria}* (R$ ${totalGasto.toFixed(2)} de R$ ${meta.limite.toFixed(2)})`);
-  }
-}
-
-export { conectar };
-
-
