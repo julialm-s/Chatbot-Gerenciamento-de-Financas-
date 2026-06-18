@@ -1,5 +1,7 @@
+// routes.js - Define as rotas da API REST para gerenciar transações, metas e resumos financeiros
+
 import express from 'express';
-import { Transacao} from '../models/index.js';
+import { Transacao, Meta } from '../models/index.js';
 import { Op } from 'sequelize';
 
 const router = express.Router();

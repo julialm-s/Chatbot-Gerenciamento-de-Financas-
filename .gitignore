@@ -1,4 +1,3 @@
 auth_finbot/
 node_modules/
 bot_config.json
-.env

@@ -1,17 +1,14 @@
-// Importa os módulos do Sequelize
-import { Sequelize, DataTypes } from 'sequelize';
+// index.js - Responsável por configurar a conexão com o banco de dados e definir os modelos de dados para transações e metas
 
-// Carrega variáveis do arquivo .env
+import { Sequelize, DataTypes } from 'sequelize';
 import 'dotenv/config';
 
-// Cria a conexão com o banco SQLite
 const sequelize = new Sequelize({
   dialect: 'sqlite',
   storage: process.env.DB_PATH || './finbot.db',
   logging: false,
 });
 
-// Modelo de transações financeiras
 const Transacao = sequelize.define('Transacao', {
   id: {
     type: DataTypes.INTEGER,
@@ -52,22 +49,34 @@ const Transacao = sequelize.define('Transacao', {
   timestamps: true,
 });
 
+const Meta = sequelize.define('Meta', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  categoria: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  limite: {
+    type: DataTypes.FLOAT,
+    allowNull: false,
+  },
+  mes: {
+    type: DataTypes.INTEGER,
+  },
+  ano: {
+    type: DataTypes.INTEGER,
+  },
+}, {
+  tableName: 'metas',
+  timestamps: true,
+});
 
-// Inicializa o banco
-async function inicializarBanco() {
-  try {
-    await sequelize.sync();
-    console.log('✅ Banco inicializado.');
-  } catch (err) {
-    console.error('❌ Erro ao inicializar banco:', err);
-    throw err;
-  }
-}
-
-
-// Exporta tudo que será utilizado em outros arquivos
-export {
-  sequelize,
-  Transacao,
-  inicializarBanco
+const inicializarBanco = async () => {
+  await sequelize.sync({ alter: true });
+  console.log('✅ Banco de dados sincronizado');
 };
+
+export { sequelize, Transacao, Meta, inicializarBanco };
