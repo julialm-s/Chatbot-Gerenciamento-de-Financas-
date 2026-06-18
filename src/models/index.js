@@ -6,7 +6,7 @@ import 'dotenv/config';
 // Cria uma instância do Sequelize configurada para conectar a um banco SQLite
 const sequelize = new Sequelize({
   dialect: 'sqlite',                  // Define o tipo de banco
-  storage: process.env.DB_PATH || './finbot.db', // Caminho do arquivo do banco. Usa variável de ambiente se existir, senão cria 'finbot.db' na raiz
+  storage: process.env.DB_PATH || './finbot.db', // Caminho do arquivo do banco.
   logging: false,                     // Desativa a exibição das queries SQL no console 
 });
 
@@ -47,8 +47,8 @@ const Transacao = sequelize.define('Transacao', {
     type: DataTypes.STRING,           // Armazena o texto bruto enviado pelo usuário 
   },
 }, {
-  tableName: 'transacoes',            // Nome explícito da tabela no banco 
-  timestamps: true,                   // Cria automaticamente as colunas 'createdAt' e 'updatedAt' para auditoria
+  tableName: 'transacoes',            
+  timestamps: true,                   
 });
 
 export { sequelize, Transacao };
