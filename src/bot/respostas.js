@@ -1,12 +1,12 @@
 // respostas.js - Responsável por formatar as respostas que o bot envia para o usuário
 
 const EMOJIS_CATEGORIA = {
-  alimentacao: '🍽️',
+  alimentação: '🍽️',
   transporte: '🚗',
-  saude: '💊',
+  saúde: '💊',
   moradia: '🏠',
   lazer: '🎮',
-  educacao: '📚',
+  educação: '📚',
   roupas: '👕',
   salario: '💼',
   freelance: '💻',

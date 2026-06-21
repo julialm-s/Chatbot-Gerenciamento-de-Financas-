@@ -83,11 +83,24 @@ async function conectar() {
 
   sock.ev.on('creds.update', saveCreds);
 
+  // IDs de mensagens já processadas para evitar duplicatas
+  const processadas = new Set();
+
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     if (type !== 'notify') return;
 
     for (const msg of messages) {
       try {
+        // Evitar processar a mesma mensagem duas vezes
+        const msgId = msg.key.id;
+        if (processadas.has(msgId)) continue;
+        processadas.add(msgId);
+        // Limpar o set periodicamente para não crescer infinitamente
+        if (processadas.size > 200) {
+          const primeiro = processadas.values().next().value;
+          processadas.delete(primeiro);
+        }
+
         const jid = msg.key.remoteJid;
         const fromMe = msg.key.fromMe;
         
@@ -109,7 +122,7 @@ async function conectar() {
                 fs.writeFileSync(CONFIG_FILE, JSON.stringify({ userLid }));
                 console.log(`✅ Bot configurado para o ID: ${userLid}`);
                 await enviar(jid, '✅ Bot configurado com sucesso! Agora responderei apenas neste chat.');
-                return; 
+                continue; // corrigido: era return, saía do loop inteiro
             }
           
             if (!userLid) continue;
@@ -137,7 +150,7 @@ async function conectar() {
         }
 
       } catch (err) {
-        if (err.message?.includes('No sessions') || err.message?.includes('Bad MAC')) return;
+        if (err.message?.includes('No sessions') || err.message?.includes('Bad MAC')) continue;
         console.error('Erro ao processar mensagem:', err);
       }
     }
@@ -204,13 +217,15 @@ async function verificarMeta(jid, transacao) {
   const ano = agora.getFullYear();
   const meta = await Meta.findOne({ where: { categoria: transacao.categoria, mes, ano } });
   if (!meta) return;
+
   const gastosCat = await Transacao.findAll({ where: { tipo: 'gasto', categoria: transacao.categoria, mes, ano } });
   const totalGasto = gastosCat.reduce((s, t) => s + t.valor, 0);
   const percentual = (totalGasto / meta.limite) * 100;
+
   if (percentual >= 100) {
     await enviar(jid, `🚨 *Atenção!* Você ultrapassou a meta de *${transacao.categoria}*!\nGasto: R$ ${totalGasto.toFixed(2)} / Limite: R$ ${meta.limite.toFixed(2)}`);
   } else if (percentual >= 80) {
-    await enviar(jid, `⚠️ Você já usou *${percentual.toFixed(0)}%* da meta de *${transacao.categoria}* (R$ ${totalGasto.toFixed(2)} de R$ ${meta.limite.toFixed(2)})`);
+    await enviar(jid, `⚠️ Você já usou *${percentual.toFixed(0)}%* da meta de *${transacao.categoria}*!\nGasto: R$ ${totalGasto.toFixed(2)} de R$ ${meta.limite.toFixed(2)}`);
   }
 }
 

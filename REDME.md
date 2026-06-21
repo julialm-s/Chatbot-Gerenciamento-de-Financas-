@@ -10,7 +10,7 @@ Bot de organização financeira via WhatsApp com API REST.
 ### 1. Instalar dependências
 
 ```bash
-cd finbot
+cd Chatbot-Gerenciamento-de-Financas
 npm install
 ```
 
