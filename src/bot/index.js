@@ -101,6 +101,10 @@ async function conectar() {
           processadas.delete(primeiro);
         }
 
+        // Ignorar mensagens antigas (anteriores aos últimos 30 segundos)
+        const msgTimestamp = (msg.messageTimestamp || 0) * 1000;
+        if (Date.now() - msgTimestamp > 30000) continue;
+
         const jid = msg.key.remoteJid;
         const fromMe = msg.key.fromMe;
         
@@ -173,8 +177,33 @@ async function processarComando(jid, parsed) {
       break;
 
     case 'resumo': {
-      const gastos = await Transacao.findAll({ where: { tipo: 'gasto', mes, ano } });
-      const receitas = await Transacao.findAll({ where: { tipo: 'receita', mes, ano } });
+      const periodo = parsed.periodo;
+      let whereGastos = { tipo: 'gasto' };
+      let whereReceitas = { tipo: 'receita' };
+      let labelPeriodo = {};
+
+      if (periodo.tipo === 'dias') {
+        const dataInicio = new Date();
+        dataInicio.setDate(dataInicio.getDate() - periodo.dias);
+        dataInicio.setHours(0, 0, 0, 0);
+        const { Op } = await import('sequelize');
+        whereGastos.data = { [Op.gte]: dataInicio.toISOString().split('T')[0] };
+        whereReceitas.data = { [Op.gte]: dataInicio.toISOString().split('T')[0] };
+        labelPeriodo = { dias: periodo.dias };
+      } else if (periodo.tipo === 'ano') {
+        whereGastos.ano = periodo.ano;
+        whereReceitas.ano = periodo.ano;
+        labelPeriodo = { ano: periodo.ano };
+      } else {
+        whereGastos.mes = periodo.mes;
+        whereGastos.ano = periodo.ano;
+        whereReceitas.mes = periodo.mes;
+        whereReceitas.ano = periodo.ano;
+        labelPeriodo = { mes: periodo.mes, ano: periodo.ano };
+      }
+
+      const gastos = await Transacao.findAll({ where: whereGastos });
+      const receitas = await Transacao.findAll({ where: whereReceitas });
       const totalGastos = gastos.reduce((s, t) => s + t.valor, 0);
       const totalReceitas = receitas.reduce((s, t) => s + t.valor, 0);
       const porCategoriaMap = {};
@@ -182,7 +211,7 @@ async function processarComando(jid, parsed) {
       const porCategoria = Object.entries(porCategoriaMap)
         .map(([categoria, total]) => ({ categoria, total }))
         .sort((a, b) => b.total - a.total);
-      await enviar(jid, respostaResumo({ totalGastos, totalReceitas, saldo: totalReceitas - totalGastos, porCategoria, mes, ano }));
+      await enviar(jid, respostaResumo({ totalGastos, totalReceitas, saldo: totalReceitas - totalGastos, porCategoria, ...labelPeriodo }));
       break;
     }
 

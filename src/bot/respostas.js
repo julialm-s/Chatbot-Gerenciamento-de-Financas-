@@ -1,12 +1,12 @@
 // respostas.js - Responsável por formatar as respostas que o bot envia para o usuário
 
 const EMOJIS_CATEGORIA = {
-  alimentação: '🍽️',
+  alimentacao: '🍽️',
   transporte: '🚗',
-  saúde: '💊',
+  saude: '💊',
   moradia: '🏠',
   lazer: '🎮',
-  educação: '📚',
+  educacao: '📚',
   roupas: '👕',
   salario: '💼',
   freelance: '💻',
@@ -35,7 +35,12 @@ function respostaAjuda() {
 • _Entrou 500 freelance_
 
 📊 *Comandos disponíveis:*
-• *resumo* — ver balanço do mês
+• *resumo* — ver balanço do mês atual
+• *resumo semana* — últimos 7 dias
+• *resumo mes passado* — mês anterior
+• *resumo ano* — ano atual
+• *resumo ultimos 15 dias* — últimos X dias
+• *resumo maio* — mês específico
 • *listar* — ver últimas transações
 • *listar 20* — ver as últimas 20
 • *meta alimentacao 500* — definir limite
@@ -55,9 +60,16 @@ function respostaTransacaoSalva(transacao) {
 _Para apagar: *apagar ${transacao.id}*_`;
 }
 
-function respostaResumo({ totalGastos, totalReceitas, saldo, porCategoria, mes, ano }) {
+function labelPeriodo({ mes, ano, dias }) {
   const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-  const nomeMes = meses[mes - 1];
+  if (dias) return `Últimos ${dias} dias`;
+  if (mes && ano) return `${meses[mes - 1]}/${ano}`;
+  if (ano) return `Ano ${ano}`;
+  return '';
+}
+
+function respostaResumo({ totalGastos, totalReceitas, saldo, porCategoria, mes, ano, dias }) {
+  const titulo = labelPeriodo({ mes, ano, dias });
   const saldoEmoji = saldo >= 0 ? '📈' : '📉';
   const saldoSinal = saldo >= 0 ? '+' : '';
 
@@ -65,12 +77,11 @@ function respostaResumo({ totalGastos, totalReceitas, saldo, porCategoria, mes, 
   if (porCategoria && porCategoria.length > 0) {
     categoriaTexto = '\n📊 *Gastos por categoria:*\n';
     porCategoria.forEach(({ categoria, total }) => {
-      const emoji = emojiCategoria(categoria);
-      categoriaTexto += `${emoji} ${categoria}: *${formatarMoeda(total)}*\n`;
+      categoriaTexto += `${emojiCategoria(categoria)} ${categoria}: *${formatarMoeda(total)}*\n`;
     });
   }
 
-  return `📅 *Resumo de ${nomeMes}/${ano}*
+  return `📅 *Resumo — ${titulo}*
 ━━━━━━━━━━━━━━
 🟢 Receitas: *${formatarMoeda(totalReceitas)}*
 🔴 Gastos: *${formatarMoeda(totalGastos)}*
